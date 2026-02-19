@@ -19,7 +19,7 @@ x402 lets you use stablecoins (USDC, etc.) on Solana and Base testnet to pay for
 | Payment | Solana testnet, Base Sepolia |
 | Data availability | Celestia mocha testnet |
 
-## First Test
+## Base Sepolia Test
 
 First successful end-to-end test — EVM payment on Base Sepolia → blob posted to Celestia Mocha:
 
@@ -52,7 +52,7 @@ The server returns HTTP 402 and settlement never executes — so the blob is nev
 
 ---
 
-## Second Test
+## Solana Devnet Test
 
 Solana payment on Solana devnet → blob posted to Celestia Mocha:
 
