@@ -6,6 +6,8 @@ The name comes from [HTTP 402: Payment Required](https://http.cat/status/402) â€
 
 [![402 Payment Required](https://http.cat/images/402.jpg)](https://http.cat/status/402)
 
+> Source: https://http.cat/status/402
+
 ## What is it?
 
 x402 lets you use stablecoins (USDC, etc.) on Solana and Base testnet to pay for blob data posted to Celestia's mocha testnet. No native TIA required for testing â€” just stablecoins you already have on EVM or Solana.
