@@ -292,7 +292,11 @@ setInterval(() => {
 }, 30_000).unref();
 
 httpServer.onProtectedRequest(async (context) => {
+  const hasPayment = !!(context.adapter.getHeader?.("payment-signature") || context.adapter.getHeader?.("x-payment"));
+  console.log(`[onProtectedRequest] hasPayment=${hasPayment} x402Ready=${x402Ready}`);
+
   if (!x402Ready) {
+    console.log("[onProtectedRequest] aborting: not ready");
     return {
       abort: true,
       reason: "Payment backend not ready yet. Retry in a few seconds.",

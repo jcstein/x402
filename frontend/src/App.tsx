@@ -257,6 +257,7 @@ export default function App() {
       });
 
       console.log("[x402] paid response:", paid.status, paid.json);
+      console.log("[x402] paid response headers:", Object.fromEntries(paid.headers.entries()));
       setSubmitStatus(paid.status);
       setSubmitResponse(paid.json);
     });
