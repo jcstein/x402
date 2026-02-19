@@ -187,6 +187,93 @@ Replay check (should be cached response / no re-charge):
 
 </details>
 
+## Custom Blob Size
+
+You can set `TEST_PAYLOAD_BYTES` to post any size blob and get dynamic pricing:
+
+```bash
+export PAYER_SVM_PRIVATE_KEY="$(tr -d '\n' < ~/.x402-keys/solana-devnet.json)"
+TEST_PAYLOAD_BYTES=2097152 npm run test:payment:svm
+```
+
+**What happened:**
+- 🟣 Paid $0.029 USDC on **Solana devnet** for a **2MB blob** (2,097,152 bytes)
+- 📦 Blob submitted to **Celestia Mocha** (height 10149503)
+- ✅ Settlement confirmed on Solana devnet
+- 🔁 Replay check returned cached response — **no double charge**
+
+The price scales with blob size — the server quotes dynamically based on Celestia gas estimates.
+
+**Explorer links:**
+- [Celestia tx on Celenium](https://mocha.celenium.io/tx/18f7a14cc1f4417fe740ae207605ab6eb39b70489ac2abeedb706b72044d14ef?tab=messages)
+- [Solana devnet payment on Solana Explorer](https://explorer.solana.com/tx/4sXx6joMKaD4XQZJRNXNXZrUYDjatH7J648srravDEYLrCqU8SN4i4xpqDEW1L1QmKuj1Lb2ka3v52bQ5R8emf5x?cluster=devnet)
+- [Payer address on Orb](https://orbmarkets.io/address/AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq?cluster=devnet&hideSpam=true)
+
+<details>
+<summary>Full test output</summary>
+
+```json
+Initial challenge received:
+{
+  "idempotencyKey": "payflow-svm-1771494439148-348634",
+  "acceptedOptions": [
+    {
+      "network": "eip155:84532",
+      "amount": "29000",
+      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "payTo": "0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9"
+    },
+    {
+      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+      "amount": "29000",
+      "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+      "payTo": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
+    }
+  ]
+}
+
+Paid request succeeded:
+{
+  "status": 200,
+  "body": {
+    "status": "submitted",
+    "txHash": "18F7A14CC1F4417FE740AE207605AB6EB39B70489AC2ABEEDB706B72044D14EF",
+    "height": 10149503,
+    "quote": {
+      "payloadBytes": 2097152,
+      "mainnetReference": {
+        "estimatedGas": 17897396,
+        "gasPriceUtia": 0.004,
+        "estimatedTia": 0.071589584,
+        "tiaUsd": 0.323688,
+        "estimatedUsd": 0.023172689265791996
+      },
+      "chargedUsd": 0.029,
+      "chargedPriceString": "$0.0290"
+    },
+    "idempotency": { "replayed": false, "status": "completed" }
+  },
+  "settlement": {
+    "success": true,
+    "transaction": "4sXx6joMKaD4XQZJRNXNXZrUYDjatH7J648srravDEYLrCqU8SN4i4xpqDEW1L1QmKuj1Lb2ka3v52bQ5R8emf5x",
+    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    "payer": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
+  }
+}
+
+Replay check (should be cached response / no re-charge):
+{
+  "status": 200,
+  "body": {
+    "idempotency": { "replayed": true, "status": "completed" }
+  }
+}
+```
+
+</details>
+
+---
+
 ## License
 
 Apache 2.0
