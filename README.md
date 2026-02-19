@@ -1,359 +1,248 @@
-# x402
+# x402 -> Celestia Blob Demo (Scaffold)
 
-Pay for [Celestia](https://celestia.org) blobs on **Mocha testnet** using stablecoins on **Solana** and **Base** testnet.
+Prototype API that charges via `x402` before submitting blob data to Celestia Mocha.
 
-The name comes from [HTTP 402: Payment Required](https://http.cat/status/402) — the status code that was always meant for micropayments on the web, and now it's finally getting its moment.
+## What This Scaffold Includes
 
-[![402 Payment Required](https://http.cat/images/402.jpg)](https://http.cat/status/402)
+- `POST /v1/blobs` paid endpoint (x402 middleware)
+- `POST /v1/quote` free endpoint to preview price from payload size
+- `GET /v1/network-info` free endpoint to inspect live Celenium constants
+- `GET /v1/poster` free endpoint to inspect the Celestia poster account/balance in `rpc` or `go` mode
+- Idempotency support with `Idempotency-Key` (replay-safe and duplicate-charge-safe)
+- Refund safety by design:
+  - if blob submission fails, endpoint returns `>=400`
+  - x402 settlement is only executed on successful (`<400`) responses
+  - failed submissions are not settled, so no transfer-refund transaction is required
+- Celestia submit adapters:
+  - `mock` mode (default)
+  - `rpc` mode via `state.SubmitPayForBlob` on celestia-node HTTP RPC
+  - `go` mode via local `api/client` runner (recommended for QuickNode DA endpoint usage)
+- Facilitator sync retry:
+  - server starts immediately
+  - x402 facilitator support sync runs in background with retry
+  - paid requests return a short “payment backend not ready” error until sync succeeds
 
-> Source: https://http.cat/status/402
+## Quick Start
 
-## What is it?
-
-x402 lets you use stablecoins (USDC, etc.) on Solana and Base testnet to pay for blob data posted to Celestia's mocha testnet. No native TIA required for testing — just stablecoins you already have on EVM or Solana.
-
-## Networks
-
-| Role | Network |
-|------|---------|
-| Payment | Solana testnet, Base Sepolia |
-| Data availability | Celestia mocha testnet |
-
-## Base Sepolia Test
-
-First successful end-to-end test — EVM payment on Base Sepolia → blob posted to Celestia Mocha:
-
-```
-PAYER_EVM_PRIVATE_KEY=$PRIVATE_KEY npm run test:payment:evm
-```
-
-**What happened:**
-- 🔵 Paid $0.01 USDC on **Base Sepolia** (EIP-155 / chain 84532)
-- 📦 Blob submitted to **Celestia Mocha** (22 bytes, height 10149010)
-- ✅ Settlement confirmed on Base Sepolia
-- 🔁 Replay check returned cached response — **no double charge**
-
-**Explorer links:**
-- [Celestia tx on Celenium](https://mocha.celenium.io/tx/4bcb2e74e891539c10e1743302c1086ff091f66a0062e585d73277917F41BE20?tab=messages)
-- [Base Sepolia payment on Blockscout](https://base-sepolia.blockscout.com/address/0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9?tab=token_transfers)
-
-**Unfunded wallet — fails with 402 (no charge):**
-
-```
-PAYER_EVM_PRIVATE_KEY=$UNFUNDED_PRIVATE_KEY npm run test:payment:evm
-```
-
-```
-Initial challenge received: { ... }
-Paid request failed with 402. Body: {}
-```
-
-The server returns HTTP 402 and settlement never executes — so the blob is never posted and you're never charged.
-
----
-
-## Solana Devnet Test
-
-Solana payment on Solana devnet → blob posted to Celestia Mocha:
+1. Install deps:
 
 ```bash
-export PAYER_SVM_PRIVATE_KEY="$(tr -d '\n' < ~/.x402-keys/solana-devnet.json)"
+npm install
+```
+
+2. Configure env:
+
+```bash
+cp .env.example .env
+```
+
+3. Start:
+
+```bash
+npm run dev
+```
+
+## Pricing Model (Current)
+
+`charged_usd = max(min_usd, estimated_mainnet_usd * (1 + markup_bps/10000) + fixed_usd)`
+
+Where:
+- `estimated_mainnet_usd` comes from:
+  - Celenium mainnet `estimate_for_pfb` gas
+  - Celenium mainnet median gas price
+  - TIA/USD from CoinGecko (fallback env value if unavailable)
+
+### Live values sampled on 2026-02-19
+
+- Mainnet gas price median: `0.004000`
+- Mocha gas price median: `0.005481`
+- `estimate_for_pfb` (bytes -> gas):
+  - `1024 -> 87988`
+  - `65536 -> 632756`
+  - `1048576 -> 8988596`
+  - `8388608 -> 71362484`
+
+With a 25% markup and current TIA/USD, the 8 MiB quote is still relatively small, so you may want higher markup/fixed fee for abuse resistance.
+
+## Payload Size Notes
+
+This demo default is `MAX_PAYLOAD_BYTES=8192000` (~7.81 MiB practical ceiling).
+
+Relevant references:
+- Celestia docs: max blob tx size is 8 MiB.
+- Celenium consensus constants endpoint currently reports:
+  - mainnet `block_max_bytes = 33554432`
+  - mocha `block_max_bytes = 134217728`
+
+In practice, transaction overhead means the full `8,388,608` payload can be rejected with `tx too large` on Mocha, so this scaffold defaults slightly lower.
+
+The endpoint `GET /v1/network-info` returns these values live.
+
+## Celestia Poster Flow (Go Mode)
+
+`CELESTIA_SUBMIT_MODE=go` uses a local Go command in this repo:
+- command default: `go run ./go/cmd/celestia-poster`
+- keyring auto-creates the poster key (if missing)
+- poster key lives at `CELESTIA_GO_KEYRING_DIR` (default `./.celestia-poster-keys`)
+- service submits all blobs with that signer
+
+Important envs:
+- `CELESTIA_GO_DA_URL` (QuickNode Mocha DA URL)
+- `CELESTIA_GO_CORE_GRPC_ADDR` (optional; defaults to `<da-host>:9090`)
+- `CELESTIA_GO_CORE_AUTH_TOKEN` (optional; defaults to DA token)
+- `CELESTIA_TX_KEY_NAME` or `CELESTIA_GO_KEY_NAME` (poster key name)
+
+For most QuickNode setups, only `CELESTIA_GO_DA_URL` is required.
+
+## API Usage
+
+### 1) Preview quote
+
+```bash
+curl -sS http://localhost:4021/v1/quote \
+  -H 'content-type: application/json' \
+  -d '{"data":"aGVsbG8gd29ybGQ="}'
+```
+
+### 2) Check poster account
+
+```bash
+curl -sS http://localhost:4021/v1/poster
+```
+
+### 3) Paid submit
+
+Use a stable `Idempotency-Key` for retries:
+
+```bash
+curl -i http://localhost:4021/v1/blobs \
+  -H 'content-type: application/json' \
+  -H 'idempotency-key: demo-001' \
+  -d '{"data":"aGVsbG8gd29ybGQ="}'
+```
+
+First request returns `402 Payment Required` with x402 requirements.
+Client then pays and retries the same request.
+
+## End-to-End Payment Test (EVM)
+
+Use the built-in test harness to exercise the full x402 flow:
+- initial `402` challenge
+- signed payment retry
+- successful submit
+- idempotent replay without duplicate charging
+
+### Prerequisites
+
+- Server running (default `http://127.0.0.1:4021`)
+- Payer wallet private key funded with Base Sepolia USDC
+- `.env` configured with your recipient addresses (`X402_EVM_PAY_TO`, `X402_SVM_PAY_TO`)
+
+### Run
+
+```bash
+PAYER_EVM_PRIVATE_KEY=0xYOUR_PRIVATE_KEY \
+npm run test:payment:evm
+```
+
+Optional overrides:
+- `TEST_BLOB_ENDPOINT` (default `http://127.0.0.1:4021/v1/blobs`)
+- `TEST_DATA_B64`
+- `TEST_PAYLOAD_BYTES` (generates payload automatically, e.g. `2097152` for 2 MiB)
+- `TEST_NAMESPACE_ID_B64`
+- `TEST_IDEMPOTENCY_KEY`
+
+### Solana (Devnet) End-to-End
+
+```bash
+PAYER_SVM_PRIVATE_KEY=YOUR_SOLANA_PRIVATE_KEY \
 npm run test:payment:svm
 ```
 
-**What happened:**
-- 🟣 Paid $0.01 USDC on **Solana devnet** (`solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1`)
-- 📦 Blob submitted to **Celestia Mocha** (26 bytes, height 10149397)
-- ✅ Settlement confirmed on Solana devnet
-- 🔁 Replay check returned cached response — **no double charge**
+Prerequisites:
+- payer wallet has Solana Devnet USDC
+- payer wallet also has some Devnet SOL for tx fees / ATA creation
 
-**Explorer links:**
-- [Celestia tx on Celenium](https://mocha.celenium.io/tx/a1acf11d074308218b954bd460b8ebba26f2a6bfd55fe5153cf1e10fa70d0c4d?tab=messages)
-- [Solana devnet payment on Solana Explorer](https://explorer.solana.com/tx/jhkvSga5ARnw7jNAURJ25DiFZTCm7YxqMuLyVgGazUhQdULXJPw9ZfGMCwxUjqZLhpkQBiVV9wphRfBSZVmte1S?cluster=devnet)
-- [Payer address on Orb](https://orbmarkets.io/address/AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq?cluster=devnet&hideSpam=true)
+Private key formats accepted:
+- base58-encoded secret key
+- JSON array of key bytes (like Solana CLI `id.json`)
+- hex string (`0x...`)
 
-<details>
-<summary>Full test output</summary>
+Optional:
+- `SVM_RPC_URL` to override RPC used when building the client-side Solana payment transaction
+- `TEST_PAYLOAD_BYTES` (e.g. `2097152` for 2 MiB)
 
-```json
-Initial challenge received:
-{
-  "idempotencyKey": "payflow-svm-1771493768676-782010",
-  "acceptedOptions": [
-    {
-      "network": "eip155:84532",
-      "amount": "10000",
-      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "payTo": "0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9"
-    },
-    {
-      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-      "amount": "10000",
-      "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-      "payTo": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
-    }
-  ]
-}
+## Validated Test Runs (2026-02-19)
 
-Paid request succeeded:
-{
-  "status": 200,
-  "body": {
-    "status": "submitted",
-    "txHash": "A1ACF11D074308218B954BD460B8EBBA26F2A6BFD55FE5153CF1E10FA70D0C4D",
-    "height": 10149397,
-    "quote": {
-      "payloadBytes": 26,
-      "chargedUsd": 0.01,
-      "chargedPriceString": "$0.0100"
-    },
-    "idempotency": { "replayed": false, "status": "completed" }
-  },
-  "settlement": {
-    "success": true,
-    "transaction": "jhkvSga5ARnw7jNAURJ25DiFZTCm7YxqMuLyVgGazUhQdULXJPw9ZfGMCwxUjqZLhpkQBiVV9wphRfBSZVmte1S",
-    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-    "payer": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
-  }
-}
+All tests below were run against:
+- x402 server on `http://127.0.0.1:4021`
+- Base Sepolia + Solana Devnet payment rails
+- Celestia Mocha in `CELESTIA_SUBMIT_MODE=go`
 
-Replay check (should be cached response / no re-charge):
-{
-  "status": 200,
-  "body": {
-    "idempotency": { "replayed": true, "status": "completed" }
-  }
-}
-```
+### A) Funding / failure safety
 
-</details>
+- Poster unfunded case: submit attempt fails at Celestia stage and API returns `>=400`.
+- Settlement safety: no x402 settlement occurs for failed submits (no charge).
+- This is the implemented "refund on revert" behavior for this prototype.
 
----
+### B) Successful paid submit flow (SVM)
 
-<details>
-<summary>Full EVM test output</summary>
-
-```json
-Initial challenge received:
-{
-  "idempotencyKey": "payflow-1771492498574-509346",
-  "acceptedOptions": [
-    {
-      "network": "eip155:84532",
-      "amount": "10000",
-      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "payTo": "0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9"
-    },
-    {
-      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-      "amount": "10000",
-      "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-      "payTo": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
-    }
-  ],
-  "selectedNetwork": "eip155:84532"
-}
-
-Paid request succeeded:
-{
-  "status": 200,
-  "body": {
-    "status": "submitted",
-    "txHash": "C5B2FD344F582C91BD824394C428A301AABFD1C9C66DDACAAC345599676AC99A",
-    "height": 10149192,
-    "quote": {
-      "payloadBytes": 22,
-      "chargedUsd": 0.01,
-      "chargedPriceString": "$0.0100"
-    },
-    "idempotency": { "replayed": false, "status": "completed" }
-  },
-  "settlement": {
-    "success": true,
-    "transaction": "0x4aa8c788c3e2aa700f4086f389469886d6edf9dd4cf128615e17a0c07560bf7d",
-    "network": "eip155:84532",
-    "payer": "0xcE5181a17319C89eC3CC9100968fba3c2c53DF82"
-  }
-}
-
-Replay check (should be cached response / no re-charge):
-{
-  "status": 200,
-  "body": {
-    "idempotency": { "replayed": true, "status": "completed" }
-  }
-}
-```
-
-</details>
-
-## Custom Blob Size
-
-You can set `TEST_PAYLOAD_BYTES` to post any size blob and get dynamic pricing. The price scales with blob size — the server quotes dynamically based on Celestia gas estimates.
-
-### Solana Devnet — 2MB
+Command pattern:
 
 ```bash
 export PAYER_SVM_PRIVATE_KEY="$(tr -d '\n' < ~/.x402-keys/solana-devnet.json)"
-TEST_PAYLOAD_BYTES=2097152 npm run test:payment:svm
+TEST_PAYLOAD_BYTES=<size_bytes> npm run test:payment:svm
 ```
 
-**What happened:**
-- 🟣 Paid $0.029 USDC on **Solana devnet** for a **2MB blob** (2,097,152 bytes)
-- 📦 Blob submitted to **Celestia Mocha** (height 10149503)
-- ✅ Settlement confirmed on Solana devnet
-- 🔁 Replay check returned cached response — **no double charge**
+Observed successful runs:
+- `2,097,152` bytes (2 MiB): submit success, settlement success, replay cached (`replayed: true`) with no re-charge.
+- `3,145,728` bytes (3 MiB): submit success, settlement success, replay cached with no re-charge.
+- `8,192,000` bytes (~7.81 MiB): submit success, settlement success, replay cached with no re-charge.
 
-**Explorer links:**
-- [Celestia tx on Celenium](https://mocha.celenium.io/tx/18f7a14cc1f4417fe740ae207605ab6eb39b70489ac2abeedb706b72044d14ef?tab=messages)
-- [Solana devnet payment on Solana Explorer](https://explorer.solana.com/tx/4sXx6joMKaD4XQZJRNXNXZrUYDjatH7J648srravDEYLrCqU8SN4i4xpqDEW1L1QmKuj1Lb2ka3v52bQ5R8emf5x?cluster=devnet)
-- [Payer address on Orb](https://orbmarkets.io/address/AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq?cluster=devnet&hideSpam=true)
+Example successful Celestia tx hashes from these runs:
+- `397D14052FAA5346619EF178C4A57DF0D60AF8E41965FAA8190AAE09EA9790B5` (2 MiB)
+- `5045D20F339C1B2B10947179A479D09ECFDED1AF2CF0E8A7A12A696300830DB1` (3 MiB)
+- `D01E1241E0137A5F5765BA3D08B17408BB84643EF9DF35A3E05FA13D7B244A74` (~7.81 MiB)
 
-<details>
-<summary>Full test output</summary>
+### C) Edge cases validated/fixed
 
-```json
-Initial challenge received:
-{
-  "idempotencyKey": "payflow-svm-1771494439148-348634",
-  "acceptedOptions": [
-    {
-      "network": "eip155:84532",
-      "amount": "29000",
-      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "payTo": "0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9"
-    },
-    {
-      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-      "amount": "29000",
-      "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-      "payTo": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
-    }
-  ]
-}
+- Dynamic quote mismatch under retries:
+  - Symptom: second leg returned `402 No matching payment requirements` on larger payloads.
+  - Fix: quote snapshot is reused per idempotency key.
+- JSON request size limit:
+  - Symptom: Express returned `413 PayloadTooLargeError` before x402 challenge for larger base64 JSON bodies.
+  - Fix: body limit now accounts for base64 expansion overhead.
+- Practical max payload:
+  - Full `8,388,608` byte data can hit Celestia tx-size constraints (`code 21`), depending on overhead.
+  - Default is set to `8,192,000` bytes for reliable behavior in this setup.
 
-Paid request succeeded:
-{
-  "status": 200,
-  "body": {
-    "status": "submitted",
-    "txHash": "18F7A14CC1F4417FE740AE207605AB6EB39B70489AC2ABEEDB706B72044D14EF",
-    "height": 10149503,
-    "quote": {
-      "payloadBytes": 2097152,
-      "mainnetReference": {
-        "estimatedGas": 17897396,
-        "gasPriceUtia": 0.004,
-        "estimatedTia": 0.071589584,
-        "tiaUsd": 0.323688,
-        "estimatedUsd": 0.023172689265791996
-      },
-      "chargedUsd": 0.029,
-      "chargedPriceString": "$0.0290"
-    },
-    "idempotency": { "replayed": false, "status": "completed" }
-  },
-  "settlement": {
-    "success": true,
-    "transaction": "4sXx6joMKaD4XQZJRNXNXZrUYDjatH7J648srravDEYLrCqU8SN4i4xpqDEW1L1QmKuj1Lb2ka3v52bQ5R8emf5x",
-    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-    "payer": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
-  }
-}
+## Env Knobs You’ll Likely Tune
 
-Replay check (should be cached response / no re-charge):
-{
-  "status": 200,
-  "body": {
-    "idempotency": { "replayed": true, "status": "completed" }
-  }
-}
-```
+- Payment rails:
+  - `X402_EVM_NETWORK` (default `eip155:84532`, Base Sepolia)
+  - `X402_SVM_NETWORK` (default Solana Devnet)
+- Recipient addresses:
+  - `X402_EVM_PAY_TO`
+  - `X402_SVM_PAY_TO`
+- Pricing:
+  - `PRICING_MARKUP_BPS`
+  - `PRICING_FIXED_USD`
+  - `PRICING_MIN_USD`
+- Celestia submit:
+  - `CELESTIA_SUBMIT_MODE=mock|rpc|go`
+  - `CELESTIA_TX_KEY_NAME`
+  - `CELESTIA_SIGNER_ADDRESS`
+  - `CELESTIA_GO_DA_URL`
+  - `CELESTIA_GO_CORE_GRPC_ADDR`
+  - `CELESTIA_GO_CORE_AUTH_TOKEN`
+  - `CELESTIA_GO_KEYRING_DIR`
+  - `CELESTIA_GO_POSTER_CMD_JSON`
 
-</details>
+## Current Assumptions
 
-### Base Sepolia — 2MB
+- EVM testnet uses Base Sepolia (`eip155:84532`).
+- Solana uses Devnet.
+- Celestia target is Mocha.
+- “Refund on revert” is handled by preventing settlement on failed submits (`>=400`).
 
-```bash
-PAYER_EVM_PRIVATE_KEY=$PRIVATE_KEY TEST_PAYLOAD_BYTES=2097152 npm run test:payment:evm
-```
-
-**What happened:**
-- 🔵 Paid $0.029 USDC on **Base Sepolia** for a **2MB blob** (2,097,152 bytes)
-- 📦 Blob submitted to **Celestia Mocha** (height 10149536)
-- ✅ Settlement confirmed on Base Sepolia
-- 🔁 Replay check returned cached response — **no double charge**
-
-**Explorer links:**
-- [Celestia tx on Celenium](https://mocha.celenium.io/tx/306d9c7229c8bfb75f655f704b4f7338f2c8a78ada66c87028e76f2723b4488c?tab=messages)
-- [Base Sepolia payment on Blockscout](https://base-sepolia.blockscout.com/tx/0x144c859318910641212e7dc711cf5acdf04f5e3d2c716d7f3b40b0e722a2bfdb)
-
-<details>
-<summary>Full test output</summary>
-
-```json
-Initial challenge received:
-{
-  "idempotencyKey": "payflow-1771494639234-597639",
-  "acceptedOptions": [
-    {
-      "network": "eip155:84532",
-      "amount": "29000",
-      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "payTo": "0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9"
-    },
-    {
-      "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
-      "amount": "29000",
-      "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-      "payTo": "AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq"
-    }
-  ],
-  "selectedNetwork": "eip155:84532"
-}
-
-Paid request succeeded:
-{
-  "status": 200,
-  "body": {
-    "status": "submitted",
-    "txHash": "306D9C7229C8BFB75F655F704B4F7338F2C8A78ADA66C87028E76F2723B4488C",
-    "height": 10149536,
-    "quote": {
-      "payloadBytes": 2097152,
-      "mainnetReference": {
-        "estimatedGas": 17897396,
-        "gasPriceUtia": 0.004,
-        "estimatedTia": 0.071589584,
-        "tiaUsd": 0.323763,
-        "estimatedUsd": 0.023178058484592
-      },
-      "chargedUsd": 0.029,
-      "chargedPriceString": "$0.0290"
-    },
-    "idempotency": { "replayed": false, "status": "completed" }
-  },
-  "settlement": {
-    "success": true,
-    "transaction": "0x144c859318910641212e7dc711cf5acdf04f5e3d2c716d7f3b40b0e722a2bfdb",
-    "network": "eip155:84532",
-    "payer": "0xcaAAe7A6a221Ce83C698d82F4708a64E5426FBc9"
-  }
-}
-
-Replay check (should be cached response / no re-charge):
-{
-  "status": 200,
-  "body": {
-    "idempotency": { "replayed": true, "status": "completed" }
-  }
-}
-```
-
-</details>
-
----
-
-## License
-
-Apache 2.0
+If you want a post-settlement refund wallet flow too, add a separate refund worker that reads settlement headers and sends explicit token refunds.

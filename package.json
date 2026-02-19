@@ -1,0 +1,33 @@
+{
+  "name": "x402",
+  "version": "1.0.0",
+  "description": "x402 + Celestia Mocha paid blob submission demo",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:payment:evm": "tsx src/test-payment-evm.ts",
+    "test:payment:svm": "tsx src/test-payment-svm.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@x402/core": "^2.3.1",
+    "@x402/evm": "^2.3.1",
+    "@x402/express": "^2.3.0",
+    "@x402/svm": "^2.3.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
