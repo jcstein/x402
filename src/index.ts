@@ -93,11 +93,11 @@ app.use((_req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, X-PAYMENT, X-PAYMENT-RESPONSE, X-PAYMENT-REQUIREMENTS, Idempotency-Key, Authorization",
+    "Content-Type, X-PAYMENT, X-PAYMENT-RESPONSE, Payment-Signature, Idempotency-Key, Authorization",
   );
   res.setHeader(
     "Access-Control-Expose-Headers",
-    "X-PAYMENT-REQUIREMENTS, X-PAYMENT-RESPONSE, X-PAYMENT",
+    "PAYMENT-REQUIRED, X-PAYMENT-RESPONSE, Payment-Response",
   );
   if (_req.method === "OPTIONS") {
     res.sendStatus(204);
