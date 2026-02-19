@@ -1,6 +1,6 @@
 # x402
 
-Pay for [Celestia](https://celestia.org) blobs on **mocha testnet** using stablecoins on **Solana** and **Base** testnet.
+Pay for [Celestia](https://celestia.org) blobs on **Mocha testnet** using stablecoins on **Solana** and **Base** testnet.
 
 The name comes from [HTTP 402: Payment Required](https://http.cat/status/402) — the status code that was always meant for micropayments on the web, and now it's finally getting its moment.
 
