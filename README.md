@@ -16,7 +16,7 @@ Prototype API that charges via `x402` before submitting blob data to Celestia Mo
 - Pay with x402 on Base Sepolia or Solana Devnet, then submit blobs to Celestia Mocha.
 - Main endpoint: `POST /v1/blobs` (returns `402` challenge first, then succeeds after payment).
 - Idempotency is built in via `Idempotency-Key` (safe retries, no double-charge replay).
-- Failed Celestia submits return `>=400`, so settlement does not execute.
+- Failed Celestia submits return `4xx/5xx`, so settlement does not execute.
 
 ## Table of Contents
 
@@ -26,7 +26,7 @@ Prototype API that charges via `x402` before submitting blob data to Celestia Mo
 - [Payload Size Notes](#payload-size-notes)
 - [Celestia Poster Flow (Go Mode)](#celestia-poster-flow-go-mode)
 - [API Usage](#api-usage)
-- [End-to-End Payment Test (EVM)](#end-to-end-payment-test-evm)
+- [End-to-End Payment Tests (EVM + SVM)](#end-to-end-payment-tests-evm--svm)
 - [Validated Test Runs (2026-02-19)](#validated-test-runs-2026-02-19)
 - [Env Knobs You'll Likely Tune](#env-knobs-youll-likely-tune)
 - [Current Assumptions](#current-assumptions)
@@ -39,7 +39,7 @@ Prototype API that charges via `x402` before submitting blob data to Celestia Mo
 - `GET /v1/poster` free endpoint to inspect the Celestia poster account/balance in `rpc` or `go` mode
 - Idempotency support with `Idempotency-Key` (replay-safe and duplicate-charge-safe)
 - Refund safety by design:
-  - if blob submission fails, endpoint returns `>=400`
+  - if blob submission fails, endpoint returns a `4xx/5xx` status
   - x402 settlement is only executed on successful (`<400`) responses
   - failed submissions are not settled, so no transfer-refund transaction is required
 - Celestia submit adapters:
@@ -69,6 +69,12 @@ cp .env.example .env
 
 ```bash
 npm run dev
+```
+
+If you want to run locally without a live Celestia endpoint, set:
+
+```bash
+CELESTIA_SUBMIT_MODE=mock npm run dev
 ```
 
 ## Pricing Model (Current)
@@ -153,13 +159,15 @@ curl -i http://localhost:4021/v1/blobs \
 First request returns `402 Payment Required` with x402 requirements.
 Client then pays and retries the same request.
 
-## End-to-End Payment Test (EVM)
+## End-to-End Payment Tests (EVM + SVM)
 
 Use the built-in test harness to exercise the full x402 flow:
 - initial `402` challenge
 - signed payment retry
 - successful submit
 - idempotent replay without duplicate charging
+
+### EVM (Base Sepolia)
 
 ### Prerequisites
 
@@ -181,7 +189,7 @@ Optional overrides:
 - `TEST_NAMESPACE_ID_B64`
 - `TEST_IDEMPOTENCY_KEY`
 
-### Solana (Devnet) End-to-End
+### SVM (Solana Devnet)
 
 ```bash
 PAYER_SVM_PRIVATE_KEY=YOUR_SOLANA_PRIVATE_KEY \
@@ -210,7 +218,7 @@ All tests below were run against:
 
 ### A) Funding / failure safety
 
-- Poster unfunded case: submit attempt fails at Celestia stage and API returns `>=400`.
+- Poster unfunded case: submit attempt fails at Celestia stage and API returns `4xx/5xx`.
 - Settlement safety: no x402 settlement occurs for failed submits (no charge).
 - This is the implemented "refund on revert" behavior for this prototype.
 
@@ -397,6 +405,6 @@ Paid request succeeded:
 - EVM testnet uses Base Sepolia (`eip155:84532`).
 - Solana uses Devnet.
 - Celestia target is Mocha.
-- “Refund on revert” is handled by preventing settlement on failed submits (`>=400`).
+- “Refund on revert” is handled by preventing settlement on failed submits (`4xx/5xx`).
 
 If you want a post-settlement refund wallet flow too, add a separate refund worker that reads settlement headers and sends explicit token refunds.
