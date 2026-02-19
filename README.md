@@ -204,6 +204,20 @@ Example successful Celestia tx hashes from these runs:
 - `5045D20F339C1B2B10947179A479D09ECFDED1AF2CF0E8A7A12A696300830DB1` (3 MiB)
 - `D01E1241E0137A5F5765BA3D08B17408BB84643EF9DF35A3E05FA13D7B244A74` (~7.81 MiB)
 
+Explorer links (verified examples):
+- 2 MiB (SVM):
+  - Celestia: [397D14.. on Celenium](https://mocha.celenium.io/tx/397D14052FAA5346619EF178C4A57DF0D60AF8E41965FAA8190AAE09EA9790B5?tab=messages)
+  - Solana payment: [3HK1Uq.. on Solana Explorer](https://explorer.solana.com/tx/3HK1UqwvgjrNn9178x2tFe8qwUf2uRCH3SENJcwn48b5mCuReoXw7UJgXAZGGoAriyStsYCmcux3fkchAspCZKVP?cluster=devnet)
+- 3 MiB (SVM):
+  - Celestia: [5045D2.. on Celenium](https://mocha.celenium.io/tx/5045D20F339C1B2B10947179A479D09ECFDED1AF2CF0E8A7A12A696300830DB1?tab=messages)
+  - Solana payment: [2VzoXi.. on Solana Explorer](https://explorer.solana.com/tx/2VzoXirkBd37KjVurBZo4pYRN8Qrtd1cuc4EpiBLGrGX623sHZ3gktSxBR81bT82aYdfZz9kMwg3P7G1SB7Nwkij?cluster=devnet)
+- 8,192,000 bytes (SVM):
+  - Celestia: [D01E12.. on Celenium](https://mocha.celenium.io/tx/D01E1241E0137A5F5765BA3D08B17408BB84643EF9DF35A3E05FA13D7B244A74?tab=messages)
+  - Solana payment: [3JYaWp.. on Solana Explorer](https://explorer.solana.com/tx/3JYaWpKpXbB4qz1yVXc7RxWAxfyicGvBsp7Bj64mwa7StnVKf6z4Nipby8pTrGeVzT789iw4ShQqnDpjHfyHKrpo?cluster=devnet)
+- 2 MiB (EVM):
+  - Celestia: [306d9c.. on Celenium](https://mocha.celenium.io/tx/306d9c7229c8bfb75f655f704b4f7338f2c8a78ada66c87028e76f2723b4488c?tab=messages)
+  - Base Sepolia payment: [0x144c85.. on Blockscout](https://base-sepolia.blockscout.com/tx/0x144c859318910641212e7dc711cf5acdf04f5e3d2c716d7f3b40b0e722a2bfdb)
+
 ### C) Edge cases validated/fixed
 
 - Dynamic quote mismatch under retries:
