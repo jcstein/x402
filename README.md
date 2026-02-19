@@ -70,6 +70,7 @@ npm run test:payment:svm
 **Explorer links:**
 - [Celestia tx on Celenium](https://mocha.celenium.io/tx/a1acf11d074308218b954bd460b8ebba26f2a6bfd55fe5153cf1e10fa70d0c4d?tab=messages)
 - [Solana devnet payment on Solana Explorer](https://explorer.solana.com/tx/jhkvSga5ARnw7jNAURJ25DiFZTCm7YxqMuLyVgGazUhQdULXJPw9ZfGMCwxUjqZLhpkQBiVV9wphRfBSZVmte1S?cluster=devnet)
+- [Payer address on Orb Markets](https://orbmarkets.io/address/AToF9t2XxnQV7PjUtApmLwdGzhH7U8PGB7JzafF8BaHq?cluster=devnet&hideSpam=true)
 
 <details>
 <summary>Full test output</summary>
