@@ -189,7 +189,12 @@ export default function App() {
         }) =>
           window.ethereum!.request({
             method: "eth_signTypedData_v4",
-            params: [evmAddress, JSON.stringify({ domain, types, primaryType, message })],
+            params: [
+              evmAddress,
+              JSON.stringify({ domain, types, primaryType, message }, (_k, v) =>
+                typeof v === "bigint" ? v.toString() : v,
+              ),
+            ],
           }) as Promise<`0x${string}`>,
       };
 
