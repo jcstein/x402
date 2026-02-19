@@ -9,7 +9,10 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:payment:evm": "tsx src/test-payment-evm.ts",
-    "test:payment:svm": "tsx src/test-payment-svm.ts"
+    "test:payment:svm": "tsx src/test-payment-svm.ts",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:install": "cd frontend && npm install"
   },
   "keywords": [],
   "author": "",
