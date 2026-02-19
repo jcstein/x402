@@ -218,7 +218,118 @@ Explorer links (verified examples):
   - Celestia: [306d9c.. on Celenium](https://mocha.celenium.io/tx/306d9c7229c8bfb75f655f704b4f7338f2c8a78ada66c87028e76f2723b4488c?tab=messages)
   - Base Sepolia payment: [0x144c85.. on Blockscout](https://base-sepolia.blockscout.com/tx/0x144c859318910641212e7dc711cf5acdf04f5e3d2c716d7f3b40b0e722a2bfdb)
 
-### C) Edge cases validated/fixed
+### C) Detailed command/output snippets
+
+#### 3 MiB SVM paid flow
+
+```bash
+export PAYER_SVM_PRIVATE_KEY="$(tr -d '\n' < ~/.x402-keys/solana-devnet.json)"
+TEST_PAYLOAD_BYTES=3145728 npm run test:payment:svm
+```
+
+```json
+Initial challenge received:
+{
+  "idempotencyKey": "payflow-svm-1771496698264-860192",
+  "acceptedOptions": [
+    { "network": "eip155:84532", "amount": "43400" },
+    { "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", "amount": "43400" }
+  ]
+}
+
+Paid request succeeded:
+{
+  "status": 200,
+  "body": {
+    "status": "submitted",
+    "payloadBytes": 3145728,
+    "txHash": "5045D20F339C1B2B10947179A479D09ECFDED1AF2CF0E8A7A12A696300830DB1",
+    "height": 10149866,
+    "idempotency": { "replayed": false, "status": "completed" }
+  },
+  "settlement": {
+    "success": true,
+    "transaction": "2VzoXirkBd37KjVurBZo4pYRN8Qrtd1cuc4EpiBLGrGX623sHZ3gktSxBR81bT82aYdfZz9kMwg3P7G1SB7Nwkij",
+    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+  }
+}
+
+Replay check:
+{
+  "status": 200,
+  "body": { "idempotency": { "replayed": true, "status": "completed" } }
+}
+```
+
+#### 8,192,000-byte SVM paid flow
+
+```bash
+export PAYER_SVM_PRIVATE_KEY="$(tr -d '\n' < ~/.x402-keys/solana-devnet.json)"
+TEST_PAYLOAD_BYTES=8192000 npm run test:payment:svm
+```
+
+```json
+Initial challenge received:
+{
+  "idempotencyKey": "payflow-svm-1771496718261-952712",
+  "acceptedOptions": [
+    { "network": "eip155:84532", "amount": "112700" },
+    { "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", "amount": "112700" }
+  ]
+}
+
+Paid request succeeded:
+{
+  "status": 200,
+  "body": {
+    "status": "submitted",
+    "payloadBytes": 8192000,
+    "txHash": "D01E1241E0137A5F5765BA3D08B17408BB84643EF9DF35A3E05FA13D7B244A74",
+    "height": 10149869,
+    "idempotency": { "replayed": false, "status": "completed" }
+  },
+  "settlement": {
+    "success": true,
+    "transaction": "3JYaWpKpXbB4qz1yVXc7RxWAxfyicGvBsp7Bj64mwa7StnVKf6z4Nipby8pTrGeVzT789iw4ShQqnDpjHfyHKrpo",
+    "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+  }
+}
+```
+
+#### 2 MiB EVM paid flow
+
+```bash
+PAYER_EVM_PRIVATE_KEY=0xYOUR_PRIVATE_KEY TEST_PAYLOAD_BYTES=2097152 npm run test:payment:evm
+```
+
+```json
+Initial challenge received:
+{
+  "acceptedOptions": [
+    { "network": "eip155:84532", "amount": "29000" },
+    { "network": "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", "amount": "29000" }
+  ],
+  "selectedNetwork": "eip155:84532"
+}
+
+Paid request succeeded:
+{
+  "status": 200,
+  "body": {
+    "status": "submitted",
+    "payloadBytes": 2097152,
+    "txHash": "306D9C7229C8BFB75F655F704B4F7338F2C8A78ADA66C87028E76F2723B4488C",
+    "idempotency": { "replayed": false, "status": "completed" }
+  },
+  "settlement": {
+    "success": true,
+    "transaction": "0x144c859318910641212e7dc711cf5acdf04f5e3d2c716d7f3b40b0e722a2bfdb",
+    "network": "eip155:84532"
+  }
+}
+```
+
+### D) Edge cases validated/fixed
 
 - Dynamic quote mismatch under retries:
   - Symptom: second leg returned `402 No matching payment requirements` on larger payloads.
