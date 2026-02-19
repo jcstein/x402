@@ -10,6 +10,19 @@ The name comes from [HTTP 402: Payment Required](https://http.cat/status/402), t
 
 Prototype API that charges via `x402` before submitting blob data to Celestia Mocha.
 
+## Table of Contents
+
+- [What This Scaffold Includes](#what-this-scaffold-includes)
+- [Quick Start](#quick-start)
+- [Pricing Model (Current)](#pricing-model-current)
+- [Payload Size Notes](#payload-size-notes)
+- [Celestia Poster Flow (Go Mode)](#celestia-poster-flow-go-mode)
+- [API Usage](#api-usage)
+- [End-to-End Payment Test (EVM)](#end-to-end-payment-test-evm)
+- [Validated Test Runs (2026-02-19)](#validated-test-runs-2026-02-19)
+- [Env Knobs You'll Likely Tune](#env-knobs-youll-likely-tune)
+- [Current Assumptions](#current-assumptions)
+
 ## What This Scaffold Includes
 
 - `POST /v1/blobs` paid endpoint (x402 middleware)
@@ -349,7 +362,7 @@ Paid request succeeded:
   - Full `8,388,608` byte data can hit Celestia tx-size constraints (`code 21`), depending on overhead.
   - Default is set to `8,192,000` bytes for reliable behavior in this setup.
 
-## Env Knobs You’ll Likely Tune
+## Env Knobs You'll Likely Tune
 
 - Payment rails:
   - `X402_EVM_NETWORK` (default `eip155:84532`, Base Sepolia)
