@@ -169,6 +169,10 @@ export default function App() {
         return;
       }
 
+      console.log("[x402] Got 402, evmAddress:", evmAddress);
+      console.log("[x402] Response headers:", Object.fromEntries(first.headers.entries()));
+      console.log("[x402] Response body:", first.json);
+
       // Step 2: parse payment requirements
       const signer = {
         address: evmAddress as `0x${string}`,
@@ -200,7 +204,10 @@ export default function App() {
         first.json,
       );
 
+      console.log("[x402] paymentRequired:", paymentRequired);
+
       // Step 3: sign + build payment payload
+      console.log("[x402] calling createPaymentPayload — MetaMask should prompt now");
       const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
       const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
 
