@@ -1,5 +1,13 @@
 # x402 -> Celestia Blob Demo (Scaffold)
 
+Pay for [Celestia](https://celestia.org) blobs on **Mocha testnet** using stablecoins on **Solana** and **Base** testnet.
+
+The name comes from [HTTP 402: Payment Required](https://http.cat/status/402), the status code made for this flow.
+
+[![402 Payment Required](https://http.cat/images/402.jpg)](https://http.cat/status/402)
+
+> Source: https://http.cat/status/402
+
 Prototype API that charges via `x402` before submitting blob data to Celestia Mocha.
 
 ## What This Scaffold Includes
