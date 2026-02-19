@@ -86,6 +86,22 @@ if (config.celestiaSubmitMode === "go" && !(config.celestiaGoDaUrl ?? config.cel
 }
 
 const app = express();
+
+// CORS — allow browser clients (e.g. local frontend dev server) to reach the API
+app.use((_req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, X-PAYMENT, X-PAYMENT-RESPONSE, Idempotency-Key, Authorization",
+  );
+  if (_req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 // Request JSON contains base64 data, which is ~4/3 the raw payload size.
 const jsonBodyLimitBytes = Math.ceil((config.maxPayloadBytes * 4) / 3) + 256 * 1024;
 app.use(express.json({ limit: jsonBodyLimitBytes }));
