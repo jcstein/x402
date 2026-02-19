@@ -212,6 +212,32 @@ export default function App() {
       console.log("[x402] paymentRequired:", paymentRequired);
 
       // Step 3: sign + build payment payload
+      // Switch MetaMask to Base Sepolia before signing
+      try {
+        await window.ethereum!.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x14A34" }], // 84532 = Base Sepolia
+        });
+      } catch (switchErr: unknown) {
+        // Chain not added yet — add it
+        if ((switchErr as { code?: number }).code === 4902) {
+          await window.ethereum!.request({
+            method: "wallet_addEthereumChain",
+            params: [
+              {
+                chainId: "0x14A34",
+                chainName: "Base Sepolia",
+                nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+                rpcUrls: ["https://sepolia.base.org"],
+                blockExplorerUrls: ["https://sepolia.basescan.org"],
+              },
+            ],
+          });
+        } else {
+          throw switchErr;
+        }
+      }
+
       console.log("[x402] calling createPaymentPayload — MetaMask should prompt now");
       let paymentPayload;
       try {
