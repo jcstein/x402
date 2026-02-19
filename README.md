@@ -10,6 +10,14 @@ The name comes from [HTTP 402: Payment Required](https://http.cat/status/402), t
 
 Prototype API that charges via `x402` before submitting blob data to Celestia Mocha.
 
+## TL;DR
+
+- Run `npm install && cp .env.example .env && npm run dev`.
+- Pay with x402 on Base Sepolia or Solana Devnet, then submit blobs to Celestia Mocha.
+- Main endpoint: `POST /v1/blobs` (returns `402` challenge first, then succeeds after payment).
+- Idempotency is built in via `Idempotency-Key` (safe retries, no double-charge replay).
+- Failed Celestia submits return `>=400`, so settlement does not execute.
+
 ## Table of Contents
 
 - [What This Scaffold Includes](#what-this-scaffold-includes)
