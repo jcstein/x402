@@ -18,6 +18,34 @@ Prototype API that charges via `x402` before submitting blob data to Celestia Mo
 - Idempotency is built in via `Idempotency-Key` (safe retries, no double-charge replay).
 - Failed Celestia submits return `4xx/5xx`, so settlement does not execute.
 
+## Frontend Demo
+
+React + Vite + TypeScript single-page demo lives in `frontend/`.
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Backend server running locally (default `http://127.0.0.1:4021`)
+
+### Quick start
+
+```bash
+npm run frontend:install && npm run frontend:dev
+```
+
+<!-- screenshot -->
+
+### UI panels
+
+- **Config bar**: set API base URL (`VITE_API_BASE_URL` fallback `http://127.0.0.1:4021`)
+- **Blob Input**: raw text payload, file upload, namespace, live byte/base64 sizing
+- **Idempotency Key**: auto-generated UUID, editable input, regenerate button
+- **Quote**: calls `POST /v1/quote`, displays raw JSON quote response
+- **Submit Blob**: calls `POST /v1/blobs`, shows 402 challenge details or submit success/error, includes replay button
+- **Network Info**: calls `GET /v1/network-info` and shows JSON response
+- **Poster Status**: calls `GET /v1/poster` and shows JSON response
+- **Explorer Links**: shown after successful submit (`txHash`) for Celestia Mocha, Solana Devnet, and Base Sepolia
+
 ## Table of Contents
 
 - [What This Scaffold Includes](#what-this-scaffold-includes)
