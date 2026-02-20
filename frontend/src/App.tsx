@@ -105,13 +105,19 @@ export default function App() {
     return typeof maybe === "string" ? maybe : "";
   }, [submitResponse]);
 
+  const [paymentSettlement, setPaymentSettlement] = useState<unknown>(null);
+
   const explorerLinks = useMemo(() => {
     if (!txHash || submitStatus !== 200) return null;
+
+    const settlement = paymentSettlement as { transaction?: string; network?: string } | null;
+    const baseTx = settlement?.network?.startsWith("eip155:") ? settlement?.transaction : undefined;
+
     return {
       celestia: `https://mocha.celenium.io/tx/${txHash}`,
-      base: `https://sepolia.basescan.org/tx/${txHash}`,
+      ...(baseTx ? { base: `https://sepolia.basescan.org/tx/${baseTx}` } : {}),
     };
-  }, [submitStatus, txHash]);
+  }, [submitStatus, txHash, paymentSettlement]);
 
   async function runAction(actionKey: string, fn: () => Promise<void>) {
     setLoadingKey(actionKey);
@@ -209,6 +215,14 @@ export default function App() {
         "idempotency-key": idempotencyKey,
         ...paymentHeaders,
       });
+
+      // Settlement info (e.g. Base Sepolia tx hash) comes back in headers
+      try {
+        const settle = httpClient.getPaymentSettleResponse((name) => paid.headers.get(name));
+        setPaymentSettlement(settle);
+      } catch {
+        setPaymentSettlement(null);
+      }
 
       setSubmitStatus(paid.status);
       setSubmitResponse(paid.json);
@@ -344,8 +358,16 @@ export default function App() {
           <h2>Explorer Links</h2>
           <ul>
             <li><a href={explorerLinks.celestia} target="_blank" rel="noreferrer">Celestia Mocha Tx ↗</a></li>
-            <li><a href={explorerLinks.base} target="_blank" rel="noreferrer">Base Sepolia Payment ↗</a></li>
+            {"base" in explorerLinks ? (
+              <li><a href={(explorerLinks as { base: string }).base} target="_blank" rel="noreferrer">Base Sepolia Payment ↗</a></li>
+            ) : null}
           </ul>
+          {paymentSettlement ? (
+            <details style={{ marginTop: 8 }}>
+              <summary>Payment settlement details</summary>
+              <pre>{pretty(paymentSettlement)}</pre>
+            </details>
+          ) : null}
         </section>
       )}
 
