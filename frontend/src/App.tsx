@@ -199,21 +199,16 @@ export default function App() {
         (name) => first.headers.get(name),
         first.json,
       );
-      console.log("[x402] paymentRequired:", paymentRequired);
 
       // Step 4: sign payment (MetaMask will prompt here)
-      console.log("[x402] calling createPaymentPayload — MetaMask should prompt now");
       const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
-      console.log("[x402] paymentPayload created:", paymentPayload);
 
       // Step 5: retry with payment
       const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
-      console.log("[x402] retrying with:", paymentHeaders);
       const paid = await requestJson(`${apiBaseUrl}/v1/blobs`, "POST", blobBody, {
         "idempotency-key": idempotencyKey,
         ...paymentHeaders,
       });
-      console.log("[x402] paid response:", paid.status, paid.json);
 
       setSubmitStatus(paid.status);
       setSubmitResponse(paid.json);
