@@ -335,6 +335,36 @@ export default function App() {
           </div>
         )}
         <pre>{submitResponse ? pretty(submitResponse) : "No submission response yet."}</pre>
+
+        {explorerLinks ? (
+          <div style={{ marginTop: 12 }}>
+            <h3 style={{ margin: "8px 0" }}>Explorer Links</h3>
+            <ul>
+              <li>
+                <a href={explorerLinks.celestia} target="_blank" rel="noreferrer">
+                  Celestia Mocha Tx ↗
+                </a>
+              </li>
+              {"base" in explorerLinks ? (
+                <li>
+                  <a
+                    href={(explorerLinks as { base: string }).base}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Base Sepolia Payment ↗
+                  </a>
+                </li>
+              ) : null}
+            </ul>
+            {paymentSettlement ? (
+              <details style={{ marginTop: 8 }}>
+                <summary>Payment settlement details</summary>
+                <pre>{pretty(paymentSettlement)}</pre>
+              </details>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="panel">
@@ -353,23 +383,6 @@ export default function App() {
         <pre>{posterInfo ? pretty(posterInfo) : "No poster status loaded."}</pre>
       </section>
 
-      {explorerLinks && (
-        <section className="panel">
-          <h2>Explorer Links</h2>
-          <ul>
-            <li><a href={explorerLinks.celestia} target="_blank" rel="noreferrer">Celestia Mocha Tx ↗</a></li>
-            {"base" in explorerLinks ? (
-              <li><a href={(explorerLinks as { base: string }).base} target="_blank" rel="noreferrer">Base Sepolia Payment ↗</a></li>
-            ) : null}
-          </ul>
-          {paymentSettlement ? (
-            <details style={{ marginTop: 8 }}>
-              <summary>Payment settlement details</summary>
-              <pre>{pretty(paymentSettlement)}</pre>
-            </details>
-          ) : null}
-        </section>
-      )}
 
       {errorMessage && (
         <section className="panel error">
