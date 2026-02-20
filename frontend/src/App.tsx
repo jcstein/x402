@@ -1,6 +1,8 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { x402Client, x402HTTPClient } from "@x402/core/client";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
+import { createWalletClient, custom } from "viem";
+import { baseSepolia } from "viem/chains";
 
 declare global {
   interface Window {
@@ -20,8 +22,7 @@ function toBase64FromBytes(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
   for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
 }
@@ -57,14 +58,12 @@ async function requestJson(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-
   let parsed: unknown;
   try {
     parsed = await response.json();
   } catch {
     parsed = { error: "Response was not JSON" };
   }
-
   return { status: response.status, ok: response.ok, json: parsed, headers: response.headers };
 }
 
@@ -77,7 +76,6 @@ export default function App() {
   const [rawPayload, setRawPayload] = useState("hello world");
   const [namespace, setNamespace] = useState(defaultNamespace);
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey());
-
   const [evmAddress, setEvmAddress] = useState<string | null>(null);
 
   const [quoteResponse, setQuoteResponse] = useState<unknown>(null);
@@ -92,7 +90,6 @@ export default function App() {
   const payloadBytes = useMemo(() => encoder.encode(rawPayload).byteLength, [rawPayload]);
   const blobBody = useMemo(() => ({ data: dataBase64, namespace }), [dataBase64, namespace]);
 
-  // Sync MetaMask account changes
   useEffect(() => {
     const handler = (accounts: unknown) => {
       const list = accounts as string[];
@@ -122,7 +119,7 @@ export default function App() {
     try {
       await fn();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unknown error");
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setLoadingKey("");
     }
@@ -131,9 +128,7 @@ export default function App() {
   async function connectMetaMask() {
     await runAction("connect", async () => {
       if (!window.ethereum) throw new Error("MetaMask not detected");
-      const accounts = (await window.ethereum.request({
-        method: "eth_requestAccounts",
-      })) as string[];
+      const accounts = (await window.ethereum.request({ method: "eth_requestAccounts" })) as string[];
       setEvmAddress(accounts[0] ?? null);
     });
   }
@@ -141,9 +136,7 @@ export default function App() {
   async function onFileUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    await runAction("file-upload", async () => {
-      setRawPayload(await file.text());
-    });
+    await runAction("file-upload", async () => setRawPayload(await file.text()));
   }
 
   async function getQuote() {
@@ -162,102 +155,66 @@ export default function App() {
         "idempotency-key": idempotencyKey,
       });
 
+      // Not 402 (cached replay) or no wallet — just show result
       if (first.status !== 402 || !evmAddress) {
-        // No 402 (maybe cached/replayed), or no wallet connected — just show result
         setSubmitStatus(first.status);
         setSubmitResponse(first.json);
         return;
       }
 
-      console.log("[x402] Got 402, evmAddress:", evmAddress);
-      console.log("[x402] Response headers:", Object.fromEntries(first.headers.entries()));
-      console.log("[x402] Response body:", first.json);
+      // Step 2: build viem WalletClient backed by MetaMask
+      // This uses identical EIP-712 encoding to the CLI (viem LocalAccount path)
+      const walletClient = createWalletClient({
+        chain: baseSepolia,
+        transport: custom(window.ethereum!),
+      });
 
-      // Step 2: parse payment requirements
-      const signer = {
-        address: evmAddress as `0x${string}`,
-        signTypedData: ({
-          domain,
-          types,
-          primaryType,
-          message,
-        }: {
-          domain: Record<string, unknown>;
-          types: Record<string, unknown>;
-          primaryType: string;
-          message: Record<string, unknown>;
-        }) =>
-          window.ethereum!.request({
-            method: "eth_signTypedData_v4",
-            params: [
-              evmAddress,
-              JSON.stringify({ domain, types, primaryType, message }, (_k, v) =>
-                typeof v === "bigint" ? v.toString() : v,
-              ),
-            ],
-          }) as Promise<`0x${string}`>,
-      };
+      // Switch to Base Sepolia if needed
+      const currentChain = await walletClient.getChainId();
+      if (currentChain !== baseSepolia.id) {
+        await walletClient.switchChain({ id: baseSepolia.id });
+      }
 
-      const paymentClient = new x402Client().register(
-        "eip155:*",
-        new ExactEvmScheme(toClientEvmSigner(signer)),
-      );
+      const addr = evmAddress as `0x${string}`;
+      const signer = toClientEvmSigner({
+        address: addr,
+        signTypedData: ({ domain, types, primaryType, message }) =>
+          walletClient.signTypedData({
+            account: addr,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            domain: domain as any,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            types: types as any,
+            primaryType,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            message: message as any,
+          }),
+      });
+
+      const paymentClient = new x402Client().register("eip155:*", new ExactEvmScheme(signer));
       const httpClient = new x402HTTPClient(paymentClient);
 
+      // Step 3: parse payment requirements from 402
       const paymentRequired = httpClient.getPaymentRequiredResponse(
         (name) => first.headers.get(name),
         first.json,
       );
-
       console.log("[x402] paymentRequired:", paymentRequired);
 
-      // Step 3: sign + build payment payload
-      // Switch MetaMask to Base Sepolia before signing
-      try {
-        await window.ethereum!.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: "0x14A34" }], // 84532 = Base Sepolia
-        });
-      } catch (switchErr: unknown) {
-        // Chain not added yet — add it
-        if ((switchErr as { code?: number }).code === 4902) {
-          await window.ethereum!.request({
-            method: "wallet_addEthereumChain",
-            params: [
-              {
-                chainId: "0x14A34",
-                chainName: "Base Sepolia",
-                nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                rpcUrls: ["https://sepolia.base.org"],
-                blockExplorerUrls: ["https://sepolia.basescan.org"],
-              },
-            ],
-          });
-        } else {
-          throw switchErr;
-        }
-      }
-
+      // Step 4: sign payment (MetaMask will prompt here)
       console.log("[x402] calling createPaymentPayload — MetaMask should prompt now");
-      let paymentPayload;
-      try {
-        paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
-        console.log("[x402] paymentPayload created:", paymentPayload);
-      } catch (err) {
-        console.error("[x402] createPaymentPayload FAILED:", err);
-        throw err;
-      }
+      const paymentPayload = await httpClient.createPaymentPayload(paymentRequired);
+      console.log("[x402] paymentPayload created:", paymentPayload);
 
-      // Step 4: retry with payment
-      const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload!);
-      console.log("[x402] retrying with payment headers:", paymentHeaders);
+      // Step 5: retry with payment
+      const paymentHeaders = httpClient.encodePaymentSignatureHeader(paymentPayload);
+      console.log("[x402] retrying with:", paymentHeaders);
       const paid = await requestJson(`${apiBaseUrl}/v1/blobs`, "POST", blobBody, {
         "idempotency-key": idempotencyKey,
         ...paymentHeaders,
       });
-
       console.log("[x402] paid response:", paid.status, paid.json);
-      console.log("[x402] paid response headers:", Object.fromEntries(paid.headers.entries()));
+
       setSubmitStatus(paid.status);
       setSubmitResponse(paid.json);
     });
@@ -299,7 +256,7 @@ export default function App() {
           </button>
         )}
         {!window.ethereum && (
-          <p style={{ color: "#f44336" }}>MetaMask not detected. Install it to pay on-chain.</p>
+          <p style={{ color: "#f44336" }}>MetaMask not detected.</p>
         )}
       </section>
 
@@ -307,11 +264,7 @@ export default function App() {
         <h2>Config</h2>
         <label>
           API Base URL
-          <input
-            value={apiBaseUrl}
-            onChange={(e) => setApiBaseUrl(e.target.value)}
-            placeholder="http://127.0.0.1:4021"
-          />
+          <input value={apiBaseUrl} onChange={(e) => setApiBaseUrl(e.target.value)} placeholder="http://127.0.0.1:4021" />
         </label>
       </section>
 
@@ -319,12 +272,7 @@ export default function App() {
         <h2>Blob Input</h2>
         <label>
           Raw Payload
-          <textarea
-            value={rawPayload}
-            onChange={(e) => setRawPayload(e.target.value)}
-            rows={8}
-            placeholder="Type text payload"
-          />
+          <textarea value={rawPayload} onChange={(e) => setRawPayload(e.target.value)} rows={8} placeholder="Type text payload" />
         </label>
         <label>
           Upload File
@@ -344,10 +292,7 @@ export default function App() {
         <h2>Idempotency Key</h2>
         <label>
           Key
-          <input
-            value={idempotencyKey}
-            onChange={(e) => setIdempotencyKey(e.target.value)}
-          />
+          <input value={idempotencyKey} onChange={(e) => setIdempotencyKey(e.target.value)} />
         </label>
         <button type="button" onClick={() => setIdempotencyKey(generateIdempotencyKey())}>
           Regenerate
@@ -369,23 +314,17 @@ export default function App() {
         )}
         <div className="row">
           <button type="button" onClick={submitBlob} disabled={isBusy("submit")}>
-            {isBusy("submit")
-              ? "Submitting…"
-              : evmAddress
-                ? "Pay + Submit Blob"
-                : "Submit Blob (mock/cached only)"}
+            {isBusy("submit") ? "Submitting…" : evmAddress ? "Pay + Submit Blob" : "Submit Blob (mock/cached only)"}
           </button>
           <button type="button" onClick={submitBlob} disabled={isBusy("submit")}>
             Re-submit (same key)
           </button>
         </div>
-
         {submitStatus !== null && (
           <div style={{ marginTop: 8, color: submitStatus === 200 ? "#4caf50" : "#f44336" }}>
             Status: {submitStatus}
           </div>
         )}
-
         <pre>{submitResponse ? pretty(submitResponse) : "No submission response yet."}</pre>
       </section>
 
@@ -409,16 +348,8 @@ export default function App() {
         <section className="panel">
           <h2>Explorer Links</h2>
           <ul>
-            <li>
-              <a href={explorerLinks.celestia} target="_blank" rel="noreferrer">
-                Celestia Mocha Tx ↗
-              </a>
-            </li>
-            <li>
-              <a href={explorerLinks.base} target="_blank" rel="noreferrer">
-                Base Sepolia Payment ↗
-              </a>
-            </li>
+            <li><a href={explorerLinks.celestia} target="_blank" rel="noreferrer">Celestia Mocha Tx ↗</a></li>
+            <li><a href={explorerLinks.base} target="_blank" rel="noreferrer">Base Sepolia Payment ↗</a></li>
           </ul>
         </section>
       )}
