@@ -1,9 +1,46 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   line-height: 1.45;
-  color: #15161a;
-  background: linear-gradient(180deg, #f2f5f8 0%, #e8edf4 100%);
+  --text: #15161a;
+  --bg-top: #f2f5f8;
+  --bg-bottom: #e8edf4;
+  --panel-bg: #ffffff;
+  --panel-border: #d4dbe4;
+  --input-border: #bcc7d4;
+  --input-bg: #fcfdff;
+  --button-border: #152f49;
+  --button-bg: #173a5f;
+  --button-text: #ffffff;
+  --pre-border: #d7dde6;
+  --pre-bg: #f8fafc;
+  --link: #0f4c9a;
+  --challenge-bg: #fff8e8;
+  --challenge-border: #ffd082;
+  --error-border: #d68892;
+  color: var(--text);
+  background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e7ebf0;
+    --bg-top: #0f151e;
+    --bg-bottom: #141d2a;
+    --panel-bg: #1a2332;
+    --panel-border: #2e3a4e;
+    --input-border: #3b4c68;
+    --input-bg: #121a26;
+    --button-border: #3e7cc5;
+    --button-bg: #2a64a8;
+    --button-text: #f2f6fb;
+    --pre-border: #334156;
+    --pre-bg: #121a26;
+    --link: #80b6ff;
+    --challenge-bg: #30220a;
+    --challenge-border: #c28b35;
+    --error-border: #b86b75;
+  }
 }
 
 * {
@@ -32,8 +69,8 @@ header p {
 }
 
 .panel {
-  background: #ffffff;
-  border: 1px solid #d4dbe4;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   padding: 14px;
   display: grid;
@@ -65,10 +102,11 @@ button {
 input,
 textarea {
   width: 100%;
-  border: 1px solid #bcc7d4;
+  border: 1px solid var(--input-border);
   border-radius: 8px;
   padding: 8px;
-  background: #fcfdff;
+  background: var(--input-bg);
+  color: var(--text);
 }
 
 textarea {
@@ -77,11 +115,11 @@ textarea {
 
 button {
   width: fit-content;
-  border: 1px solid #152f49;
+  border: 1px solid var(--button-border);
   border-radius: 8px;
   padding: 8px 12px;
-  background: #173a5f;
-  color: #ffffff;
+  background: var(--button-bg);
+  color: var(--button-text);
   cursor: pointer;
 }
 
@@ -92,11 +130,11 @@ button:disabled {
 
 pre {
   margin: 0;
-  border: 1px solid #d7dde6;
+  border: 1px solid var(--pre-border);
   border-radius: 8px;
   padding: 10px;
   overflow: auto;
-  background: #f8fafc;
+  background: var(--pre-bg);
   font-size: 0.82rem;
 }
 
@@ -115,14 +153,14 @@ pre {
 .challenge {
   display: grid;
   gap: 2px;
-  background: #fff8e8;
-  border: 1px solid #ffd082;
+  background: var(--challenge-bg);
+  border: 1px solid var(--challenge-border);
   border-radius: 8px;
   padding: 10px;
 }
 
 .error {
-  border-color: #d68892;
+  border-color: var(--error-border);
 }
 
 ul {
@@ -131,7 +169,7 @@ ul {
 }
 
 a {
-  color: #0f4c9a;
+  color: var(--link);
 }
 
 @media (max-width: 720px) {
