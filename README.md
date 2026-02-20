@@ -48,13 +48,15 @@ npm run frontend:install && npm run frontend:dev
 
 ## Table of Contents
 
+- [TL;DR](#tldr)
+- [Frontend Demo](#frontend-demo)
 - [What This Scaffold Includes](#what-this-scaffold-includes)
 - [Quick Start](#quick-start)
 - [Pricing Model (Current)](#pricing-model-current)
 - [Payload Size Notes](#payload-size-notes)
 - [Celestia Poster Flow (Go Mode)](#celestia-poster-flow-go-mode)
 - [API Usage](#api-usage)
-- [End-to-End Payment Test (EVM)](#end-to-end-payment-test-evm)
+- [End-to-End Payment Tests](#end-to-end-payment-tests)
 - [Validated Test Runs (2026-02-19)](#validated-test-runs-2026-02-19)
 - [Env Knobs You'll Likely Tune](#env-knobs-youll-likely-tune)
 - [Current Assumptions](#current-assumptions)
@@ -181,7 +183,7 @@ curl -i http://localhost:4021/v1/blobs \
 First request returns `402 Payment Required` with x402 requirements.
 Client then pays and retries the same request.
 
-## End-to-End Payment Test (EVM)
+## End-to-End Payment Tests
 
 Use the built-in test harness to exercise the full x402 flow:
 - initial `402` challenge
@@ -189,13 +191,15 @@ Use the built-in test harness to exercise the full x402 flow:
 - successful submit
 - idempotent replay without duplicate charging
 
-### Prerequisites
+### EVM (Base Sepolia)
+
+Prerequisites:
 
 - Server running (default `http://127.0.0.1:4021`)
 - Payer wallet private key funded with Base Sepolia USDC
 - `.env` configured with your recipient addresses (`X402_EVM_PAY_TO`, `X402_SVM_PAY_TO`)
 
-### Run
+Run:
 
 ```bash
 PAYER_EVM_PRIVATE_KEY=0xYOUR_PRIVATE_KEY \
@@ -209,16 +213,18 @@ Optional overrides:
 - `TEST_NAMESPACE_ID_B64`
 - `TEST_IDEMPOTENCY_KEY`
 
-### Solana (Devnet) End-to-End
+### SVM (Solana Devnet)
+
+Prerequisites:
+- payer wallet has Solana Devnet USDC
+- payer wallet also has some Devnet SOL for tx fees / ATA creation
+
+Run:
 
 ```bash
 PAYER_SVM_PRIVATE_KEY=YOUR_SOLANA_PRIVATE_KEY \
 npm run test:payment:svm
 ```
-
-Prerequisites:
-- payer wallet has Solana Devnet USDC
-- payer wallet also has some Devnet SOL for tx fees / ATA creation
 
 Private key formats accepted:
 - base58-encoded secret key
@@ -242,7 +248,9 @@ All tests below were run against:
 - Settlement safety: no x402 settlement occurs for failed submits (no charge).
 - This is the implemented "refund on revert" behavior for this prototype.
 
-### B) Successful paid submit flow (SVM)
+### B) Successful paid submit flows
+
+#### SVM (Solana Devnet)
 
 Command pattern:
 
@@ -271,11 +279,18 @@ Explorer links (verified examples):
 - 8,192,000 bytes (SVM):
   - Celestia: [D01E12.. on Celenium](https://mocha.celenium.io/tx/D01E1241E0137A5F5765BA3D08B17408BB84643EF9DF35A3E05FA13D7B244A74?tab=messages)
   - Solana payment: [3JYaWp.. on Solana Explorer](https://explorer.solana.com/tx/3JYaWpKpXbB4qz1yVXc7RxWAxfyicGvBsp7Bj64mwa7StnVKf6z4Nipby8pTrGeVzT789iw4ShQqnDpjHfyHKrpo?cluster=devnet)
+
+#### EVM (Base Sepolia)
+
+Observed successful run:
+- `2,097,152` bytes (2 MiB): submit success, settlement success, replay cached with no re-charge.
+
+Explorer links (verified example):
 - 2 MiB (EVM):
   - Celestia: [306d9c.. on Celenium](https://mocha.celenium.io/tx/306d9c7229c8bfb75f655f704b4f7338f2c8a78ada66c87028e76f2723b4488c?tab=messages)
   - Base Sepolia payment: [0x144c85.. on Blockscout](https://base-sepolia.blockscout.com/tx/0x144c859318910641212e7dc711cf5acdf04f5e3d2c716d7f3b40b0e722a2bfdb)
 
-### C) Detailed command/output snippets
+### C) Detailed command/output snippets (SVM + EVM)
 
 #### 3 MiB SVM paid flow
 
